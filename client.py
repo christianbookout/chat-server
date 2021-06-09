@@ -1,40 +1,45 @@
 import socket 
 import threading
+import pickle
+import user
 #import pyaudio
 
-
 class Client:
-    def __init__(self, ip, port, chat_window):
-        self.ip = ip
+    #connects to the server's socket
+    def __init__(self, ip, port, chat_window, username):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client.connect((ip, port))
+        self.ip = ip
+        self.port = port
         self.chat_window = chat_window
-        threading.Thread(target=self.listen_thread).start()
-    """def start(self):
-        self.s = None
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.s:
-            self.s.connect((host_ip, host_port))
-            
-            #def send_message(message):
-            #    if s:
-            #        s.sendall(message.encode())
-            print("Connected!")
-            self.send_message("hi")
-            self.message_sendy.bind('<Return>', lambda event: self.send_message("yo"))
-            #user_thread = threading.Thread(target=user_input_thread)
-            #user_thread.start()
+        self.username = username
+        
+    def connect(self):
+        self.client.connect
+        print("Tryna connect to " + self.ip + ":" + str(self.port))
+        try:
+            self.client.connect((self.ip, self.port))
 
-            #while True:
-            #    data = s.recv(2048).decode()
-            #    print(data)"""
+            #send server your username 
+            self.client.send(self.username.encode())
+
+            #server sends the channels and users in the server
+            (self.channels, self.users) = pickle.loads(self.client.recv(4096))
+        except Exception as e:
+            print(e)
+            self.chat_window.display_message("\nFailed to connect to " + self.ip + ":" + str(self.port))
+            return False
+        print("connected to server")
+        threading.Thread(target=self.listen_thread).start()
+        return True
+    #listens for a message from the server
     def listen_thread(self):
         while True:
-            data = self.client.recv(2048).decode()
-            print("Getting " + data)
-            self.chat_window.display_message(data)
+            data = pickle.loads(self.client.recv(4096))
+            self.chat_window.display_message(data.content)
 
+    #sends a message to the server to be sent to the rest of the clients
     def send_message(self, message):
         if self.client:
-            print("Sending " + message)
-            self.client.sendall(message.encode())
+            print("Sending " + message.content)
+            self.client.send(pickle.dumps(message))
     
