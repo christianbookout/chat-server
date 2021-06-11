@@ -7,6 +7,7 @@ from message import Message
 from channel import Channel
 from re import sub
 import pathlib
+from datetime import datetime
 #from ttkthemes import ThemedStyle
 
 port_field_text = "Enter port"
@@ -48,7 +49,7 @@ class ChatWindow:
         #Tells the client to send a message of the message_field's contents
         def send_message(event):
             message = self.message_field.get("1.0", "end")
-            self.client.send_message(Message(message, self.get_selected_channel()))
+            self.client.send_message(Message(message, self.get_selected_channel(), datetime.now))
             self.message_field.delete("1.0", "end")
             return 'break'
 
@@ -60,18 +61,18 @@ class ChatWindow:
             ip = sub(r"[\n\t\s]*", "", self.ip_field.get("1.0", "end"))
             port = int(self.port_field.get("1.0", "end"))
 
-            with open(os.path.join(str(pathlib.Path().absolute()) + '\\resources\\names.txt')) as f:
-                self.username = random.choice(f.read().split('\n'))
+            self.username = self.get_random_name()
 
-            self.client = Client(ip, port, self, self.username)
+            self.client = Client(ip, port, self, self.username, datetime.now)
             if not self.client.connect():
+                self.display_message("\nFailed to connect to " + ip + ":" + str(port))
                 return
             self.textbox.delete("1.0", "end")
             self.port_field.pack_forget()
             self.ip_field.pack_forget()
 
             general_placeholder = StringVar(window)
-            general_placeholder.set("general")
+            general_placeholder.set("Channels")
             self.channel_dropdown = OptionMenu(window, general_placeholder, self.channels, command=select_channel)
             self.channel_dropdown.pack(side=TOP)
 
@@ -99,13 +100,23 @@ class ChatWindow:
 
         self.button = Button(window)
 
+    #Gets a random name from names.txt
+    def get_random_name(self):
+        with open(os.path.join(str(pathlib.Path().absolute()) + '\\resources\\names.txt')) as f:
+                return random.choice(f.read().split('\n'))
+
     #Displays a message on the chatwindow
     def display_message(self, message):
         self.textbox.insert(END, str(message) )
+        self.textbox.see(END)
 
     #Sets the channels variable (when it's sent to the client from the server)
     def set_channels(self, channels):
         self.channels = channels
+
+    def set_channel(self, channel):
+        for message in channel.message_history:
+            self.display_message(message)
     
     #Get the selected channel by the channel list's current selected channel string
     def get_selected_channel(self):

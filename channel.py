@@ -5,8 +5,10 @@ class Channel:
         self.title = title
         self.is_public = is_public
         
+        self.message_history = []
+
         if self.is_public:
-            self.users = server.users
+            self.users = server.connected_users
         else:
             self.users = []
 

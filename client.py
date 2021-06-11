@@ -26,7 +26,6 @@ class Client:
             (self.channels, self.users) = pickle.loads(self.client.recv(4096))
         except Exception as e:
             print(e)
-            self.chat_window.display_message("\nFailed to connect to " + self.ip + ":" + str(self.port))
             return False
         print("connected to server")
         threading.Thread(target=self.listen_thread).start()
