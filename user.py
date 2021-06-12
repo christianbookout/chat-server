@@ -4,7 +4,7 @@ class User:
     def __init__(self, username, timestamp):
         self.username = username
         self.timestamp = timestamp
-        self.id = uuid.UUID()
+        self.id = uuid.uuid4()
 
     def __eq__(self, other_user):
         return other_user.id == self.id

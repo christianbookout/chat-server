@@ -1,6 +1,8 @@
+from message import Message
 import socket 
 import threading
 import pickle
+import channel
 import user
 #import pyaudio
 
@@ -12,6 +14,7 @@ class Client:
         self.port = port
         self.chat_window = chat_window
         self.username = username
+        self.channels = []
         
     def connect(self):
         self.client.connect
@@ -23,7 +26,7 @@ class Client:
             self.client.send(self.username.encode())
 
             #server sends the channels and users in the server
-            (self.channels, self.users) = pickle.loads(self.client.recv(4096))
+            (self.channels, self.users, self.user) = pickle.loads(self.client.recv(4096))
         except Exception as e:
             print(e)
             return False
@@ -34,11 +37,12 @@ class Client:
     def listen_thread(self):
         while True:
             data = pickle.loads(self.client.recv(4096))
+            data.channel = channel.Channel.get_channel(self.channels, data.channel)
+            data.channel.append_message(data)
             self.chat_window.display_message(data.content)
 
     #sends a message to the server to be sent to the rest of the clients
     def send_message(self, message):
         if self.client:
-            print("Sending " + message.content)
             self.client.send(pickle.dumps(message))
     

@@ -1,2 +1,6 @@
 /.vscode
 __pycache__
+bans.server
+channels.server
+user_data.server
+

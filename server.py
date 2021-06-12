@@ -9,7 +9,7 @@ import pickle
 from user import User
 from message import Message
 import channel
-
+from os import path
 #TODO 
 #make ban work
 #read banned ips from data.json
@@ -27,10 +27,11 @@ import channel
 #figure out whether or not i need to store peoples ip for banning
 
 
-#TODO decide whether to use .json or just write objects
-user_data_file = "user_data.server"
-channels_file = "channels.server"
-banned_user_file = "bans.server"
+file_extension = ".server"
+
+user_data_file = "user_data" + file_extension
+channels_file = "channels" + file_extension
+banned_user_file = "bans" + file_extension
 
 
 #(users, connection)
@@ -49,17 +50,21 @@ def load_server_info():
     global banned_users
     global channels
     global known_users
-    #https://www.programiz.com/python-programming/json
-    with open(banned_user_file, "rb") as file:
-        banned_users = pickle.load(file)
+    def load_file(file_path):
+        if not path.exists(file_path):
+            try:
+                open(file_path, "w").close()
+            except:
+                print("Couldn't create file with path: " + file_path)
+            return []
+        elif path.getsize(file_path) == 0:
+            return []
+        with open(file_path, "rb") as file:
+            return pickle.load(file)
 
-    with open(channels_file, "rb") as file:
-        channels = pickle.load(file)
-
-    with open(user_data_file, "rb") as file:
-        known_users = pickle.load(file)
-        
-
+    banned_users = load_file(banned_user_file)
+    channels = load_file(channels_file)
+    known_users = load_file(user_data_file)
 
 #bans a user's ip from joining the server
 def ban(user):
@@ -77,8 +82,14 @@ def kick(id):
     connected_user = connected_user[0]
 
     remove_user(connected_user[0], connected_user[1])
-   
+
+def store_message(message):
+    message.channel.message_history.append(message)
+    with open(channels_file, "wb") as file:
+        pickle.dump(channels, file)
+
 def send_message(message):
+    store_message(message)
     for (u, conn) in connected_users:
         try:
             conn.sendall(pickle.dumps(message))
@@ -88,16 +99,19 @@ def send_message(message):
 
 def create_channel(title, is_public):
     channels.append(channel.Channel(title, is_public))
+    with open(channels_file, "wb") as file:
+        pickle.dump(channels, file)
 
-def store_data():
-    #store everything to data.json
-    with open(user_data_file, "w") as file:
-        file.write("")
-        #store channels, banned users, messages
+#def store_data():
+#    #store everything to data.json
+#    with open(user_data_file, "w") as file:
+#        file.write("")
+#        #store channels, banned users, messages
 
-def store_messages():
-    pass
+def bool(str):
+    return str.lower() == "true"
 
+#Receives input from the console, all actions that the server host can perform 
 def server_input_thread():
     while True:
         #try:
@@ -108,8 +122,9 @@ def server_input_thread():
         if args[0].startswith("/"):
             if args[0] == "/exit":
                 pass #this will be surprisingly painful
-            elif args[0] == "/channel" and len(args) >= 2:
+            elif args[0] == "/channel" and len(args) >= 3:
                 print("Creating new channel")
+                create_channel(args[1], bool(args[2]))
             elif args[0] == "/kick" and len(args) >= 2:
                 kick(args[1]) 
             elif args[0] == "/say" and len(args) >= 3:
@@ -128,20 +143,19 @@ def client_connection_thread(user, connection):
             if not message:
                 remove_user(user, connection)
                 break
-            print(str(message.content))
-            send_message(Message("<" + user.username + ">: " + message.content, message.channel, datetime.now))
+            send_message(Message(user, "<" + user.username + ">: " + message.content, channel.Channel.get_channel(channels, message.channel), datetime.now))
             message.channel.message_history.append(message)
         except Exception as e:
-            print(repr(user) + " has left the server. Exception: " + str(e))
-            remove_user(user, connection)
-            sys.exit()
+            print(repr(user) + "'s message has resulted in an error. Exception: " + str(e))
+            #remove_user(user, connection)
+            #sys.exit()
 
 def remove_user(user, connection):
     #print("Removing " + repr(user))
     if ((user, connection) in connected_users):
         connected_users.remove((user, connection))
     connection.close()
-
+4
 #begin listening on your ip and port for users
 def listen_thread():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -169,12 +183,11 @@ def listen_thread():
                     username = [0]
                 elif len(known_user) > 1:
                     print("There are multiple users with the username " + username + ". How!?")
-                else:
-                    user = User(username, datetime.now())
+                user = User(username, datetime.now())
 
                 connected_users.append((user, connection))
                 #Server gives the client a list of available channels and online users
-                connection.send(pickle.dumps((channels, users())))
+                connection.send(pickle.dumps((channels, users(), user)))
             except Exception as e:
                 print("Connection failed with " + connection_address[0] + " with error message: " + str(e))
                 if user:
@@ -196,6 +209,8 @@ if __name__ == '__main__':
     host_port = int(sys.argv[2])
     max_num_users = int(sys.argv[3])
 
+    load_server_info()
+    #print(channels[0].message_history[0])
     user_thread = threading.Thread(target=server_input_thread)
     user_thread.start()
 
