@@ -59,6 +59,7 @@ class ChatWindow:
             #Remove focus from message field
             root.focus()
 
+            #have to use strings for a optionmenu 
             for i in self.client.channels:
                 if i.title == channel:
                     self.selected_channel = i
@@ -86,8 +87,7 @@ class ChatWindow:
             self.port_field.pack_forget()
             self.ip_field.pack_forget()
 
-            self.selected_channel = None#self.client.channels[0]
-            #print(str(self.selected_channel.title) + " help")
+            self.selected_channel = None
             titles = [i.title for i in self.client.channels]
             default_value = StringVar(root)
             default_value.set("Select a channel")
@@ -135,14 +135,6 @@ class ChatWindow:
     def set_channel(self, channel):
         for message in channel.message_history:
             self.display_message(message)
-    
-    #Get the selected channel by the channel list's current selected channel string
-    #def get_selected_channel(self):
-    #    if not self.channels:
-    #        return None
-    #    
-    #    #TODO make sure this works lol
-    #    return [i for i in self.channels if i.get() == self.selected_channel][0]
         
 
 if __name__ == '__main__':

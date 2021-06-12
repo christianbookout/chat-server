@@ -3,5 +3,5 @@ class Message:
         self.author = author
         self.content = content
         self.channel = channel
-        self.timestamp = timestamp
+        self.timestamp = str(timestamp)
         
