@@ -34,6 +34,8 @@ user_data_file = "user_data" + file_extension
 channels_file = "channels" + file_extension
 banned_user_file = "bans" + file_extension
 
+stayalive = True
+listen_socket = None
 
 #(users, connection)
 connected_users = []
@@ -46,6 +48,14 @@ def users():
 
 def connections():
     return [i[1] for i in connected_users]
+
+# close all open sockets by using a classic strategy employed by governments worldwide!
+def close_all_sockets():
+    if listen_socket != None:
+        listen_socket.close()
+    for user in connected_users:
+        user[1].shutdown(socket.SHUT_RDWR)
+        user[1].close()
 
 #bans a user's ip from joining the server
 def ban(user):
@@ -100,6 +110,7 @@ def bool(str):
 
 #Receives input from the console, all actions that the server host can perform 
 def server_input_thread():
+    global stayalive
     while True:
         #try:
         inp = input()
@@ -110,7 +121,9 @@ def server_input_thread():
             if args[0] == "/exit":
             #    for connected_user in connected_users:
             #        remove_user(connected_user[0], connected_user[1])
-                pass #why is it like this
+                close_all_sockets()
+                stayalive = False
+                break
             elif args[0] == "/channel" and len(args) >= 3:
                 print("Creating new channel")
                 create_channel(args[1], bool(args[2]))
@@ -122,10 +135,12 @@ def server_input_thread():
                 print("/say (channel_name) (message): Sends message in channel_name\n/kick (username): Disconnects the user named username from the server\n/channel (name) (is_public)")
             else:
                 print("Unknown command. Type /help for a list of commands.")
+    print('user input thread exited')
 
 #thread that interacts from the server to one client 
 def client_connection_thread(user, connection):
-    while True:
+    global stayalive
+    while stayalive:
         try:
             #Server receives message contents from the user containing the user's string message and the channel it was sent in
             messsage = connection.recv(1024)
@@ -148,24 +163,25 @@ def client_connection_thread(user, connection):
 
 #begin listening on your ip and port for users
 def listen_thread():
+    global stayalive
+    global listen_socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-
+        listen_socket = s
         print("Opening server with address " + host_ip + ":" + str(host_port))
 
         s.bind((host_ip, host_port))
         s.listen(max_num_users)
 
         #listen infinitely for new users to join 
-        while True: 
-            (connection, connection_address) = s.accept() 
-
-            print("Connecting to user!")
-            #if the user is banned, don't allow them to join the chatroom
-            #if (connection_address[0] in banned_users):
-            #    remove_user(connection)
-
-            #Initial data exchange
+        while True:
             try:
+                (connection, connection_address) = s.accept() 
+                print("Connecting to user!")
+                #if the user is banned, don't allow them to join the chatroom
+                #if (connection_address[0] in banned_users):
+                #    remove_user(connection)
+                #Initial data exchange
+
                 #Server receives initial packet containing user's username (and maybe other data in the future)
                 username = connection.recv(1024).decode()
                 known_user = [i for i in known_users if i.username == username]
@@ -183,6 +199,9 @@ def listen_thread():
                 connection.send(json.dumps(channels_json).encode())
                 connection.send(json.dumps(users_json).encode())
                 connection.send(json.dumps(user.__dict__).encode())
+            except OSError:
+                print('listen thread exited')
+                return
             except Exception as e:
                 print("Connection failed with " + connection_address[0] + " with error message: " + str(e))
                 if user:
@@ -192,7 +211,7 @@ def listen_thread():
             #TODO send the new user to every client so they can see they are connected (and remove the user when they leave)
             print("User with id " + str(user.id) + " joined")
             client_thread = threading.Thread(target=client_connection_thread, args=[user, connection])
-            client_thread.start()  
+            client_thread.start()
     
 def load_server_info():
     global banned_users
